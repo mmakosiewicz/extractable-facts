@@ -4,18 +4,62 @@ AI search engines don't read a page top to bottom. They split it into chunks, re
 
 So a page can be well written, accurate, and thoroughly researched, and still never get cited — because its best facts are buried late, hedged into mush, or written so they collapse when lifted out of context.
 
-This repo holds two agent skills for fixing that. The first audits a page or draft for extractability and hands back a rewrite for every problem it finds. The second is the editorial craft layer underneath it — the prose rules that make content worth citing in the first place.
+This repo holds three agent skills for fixing that.
 
 None of this means writing robotic "LLM-friendly" copy. It's mostly good editorial hygiene: make the answer easy to find, keep claims precise, put important information in visible text, and make sure key passages still make sense when read on their own.
 
 | Skill | What it does |
 |---|---|
-| [`ai-extractability-audit`](skills/ai-extractability-audit) | Audits a live URL or an unpublished draft for whether AI search engines can extract and cite its facts. Returns a fix list with a concrete rewrite for every finding. |
+| [`query-match-audit`](skills/query-match-audit) | Checks whether a page matches the queries you want it to win, and whether it offers anything worth retrieving instead of a generic summary. |
+| [`ai-extractability-audit`](skills/ai-extractability-audit) | Audits whether AI search engines can chunk, understand, and cite the facts on a page. Returns a concrete rewrite for every finding. |
 | [`blog-style-editing`](skills/blog-style-editing) | Edits blog and article prose to a high editorial standard — voice, structure, headings, AI-tell removal. Adapts to whatever house style you give it. |
 
-Both are brand-neutral. Neither asks you to mention any product.
+They stack in that order: be *relevant* enough to retrieve, be *extractable* enough to quote, be *well written* enough to deserve it. All three take a live URL or an unpublished draft.
+
+All three are brand-neutral. None of them asks you to mention any product.
 
 They're in the [Agent Skills](https://code.claude.com/docs/en/skills) format (`SKILL.md` + optional `scripts/` and `references/`), so they work in any agent environment that reads skill folders — Claude Code, Letaido, Codex, ChatGPT Agents. You can also run the audit script directly and ignore the agent part.
+
+---
+
+## query-match-audit
+
+Two questions, in order, against the queries you actually want to win:
+
+1. **Does the page obviously match the query?** Clear from the title, meta description, headings, URL and body — not buried three-quarters of the way down a broader page.
+2. **Is there anything here worth retrieving?** Generic summaries are easy to replace. If dozens of pages say essentially the same thing, an AI system has no reason to use yours.
+
+```bash
+python3 skills/query-match-audit/scripts/querymatch.py \
+  --url https://example.com/post/ \
+  --queries "ai visibility tools for startups" "best ai visibility tools"
+
+python3 skills/query-match-audit/scripts/querymatch.py \
+  --draft ./article.md --queries-file ./prompts.txt
+```
+
+Per query it returns a verdict — **dedicated page** / **dedicated section** / **buried in body** / **not covered** — with per-field coverage across title, H1, slug, headings and body, the terms missing from the title, and how deep into the page the query's terms first co-occur.
+
+For substance it checks nine hard-to-reproduce signals (original data, methodology, firsthand experience, examples, screenshots, benchmarks, customer insight, expert input, workflows), plus figures per 1,000 words, external sourcing, thin sections, generic openers, and unsupported appeals to authority — "studies show" with no link.
+
+```
+QUERY MATCH
+  "does schema markup help ai citations"  →  DEDICATED PAGE
+      title  60.0%  h1  60.0%  slug  60.0%  headings  60.0%  body 100.0%
+      missing from title: markup, help
+
+  "ai visibility tools for startups"  →  NOT COVERED
+      title  25.0%  h1  25.0%  slug  25.0%  headings  50.0%  body  50.0%
+
+SUBSTANCE  (6/9 hard-to-reproduce signals present)
+  present : original_data, methodology, firsthand, examples, benchmarks, expert
+  ABSENT  : screenshots, customer, workflow
+  28 figures (12.2/1000w) · 9 external links · 2 distinct sources
+```
+
+The skill then handles the judgement the script can't: whether a buried query deserves its own page (with the proposed title, H1, slug, and what moves across), and the **replaceability test** — if a competitor could write this page from the same three sources in an afternoon, that's the finding, and it outranks every heading tweak in the report.
+
+**What it can't do is invent real expertise, original data, customer insight, or product facts.** It names exactly what kind of material would fix a generic section; supplying that material is the team's job. Give it access to product docs, customer research, or support conversations and it gets specific — "your support queue has eleven questions about this; three belong in this section".
 
 ---
 
@@ -131,9 +175,11 @@ There is no mention quota. Zero product mentions in an article is a perfectly go
 
 ---
 
-## Both skills return rewrites, not observations
+## All three return fixes, not observations
 
-Every finding arrives with the replacement text, quoted as current versus proposed. "This paragraph is too long" is an observation; "split after '…ranking factor.'" is a fix. Phrasings like "consider adding specifics" or "could be tightened" are explicitly banned in both skills.
+Every finding arrives with the replacement text, quoted as current versus proposed. "This paragraph is too long" is an observation; "split after '…ranking factor.'" is a fix. "Your title is weak" is an observation; the proposed title, written out, is a fix. Phrasings like "consider adding specifics" or "could be tightened" are explicitly banned in all three skills.
+
+The exception in each case is material only you can supply — a statistic, a customer example, an original screenshot. Those come back as a specific request ("how many teams, measured how, over what period?"), never as an invented fact.
 
 Rewrites are minimal by design — change the words causing the failure and nothing else. A six-word fix the author accepts beats a rewritten paragraph they argue with.
 
