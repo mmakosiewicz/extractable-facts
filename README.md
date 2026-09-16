@@ -1,6 +1,12 @@
-# AI content skills
+# Make facts and data easy to extract for AI
 
-Two agent skills for writing and auditing web content, in the [Agent Skills](https://code.claude.com/docs/en/skills) format (`SKILL.md` + optional `scripts/` and `references/`). They work in any agent environment that reads skill folders — Claude Code, Letaido, Codex, ChatGPT Agents — or you can run the script directly and ignore the agent part.
+AI search engines don't read a page top to bottom. They split it into chunks, retrieve the passages most relevant to a query, and cite only the fragments that support an answer.
+
+So a page can be well written, accurate, and thoroughly researched, and still never get cited — because its best facts are buried late, hedged into mush, or written so they collapse when lifted out of context.
+
+This repo holds two agent skills for fixing that. The first audits a page or draft for extractability and hands back a rewrite for every problem it finds. The second is the editorial craft layer underneath it — the prose rules that make content worth citing in the first place.
+
+None of this means writing robotic "LLM-friendly" copy. It's mostly good editorial hygiene: make the answer easy to find, keep claims precise, put important information in visible text, and make sure key passages still make sense when read on their own.
 
 | Skill | What it does |
 |---|---|
@@ -9,13 +15,13 @@ Two agent skills for writing and auditing web content, in the [Agent Skills](htt
 
 Both are brand-neutral. Neither asks you to mention any product.
 
+They're in the [Agent Skills](https://code.claude.com/docs/en/skills) format (`SKILL.md` + optional `scripts/` and `references/`), so they work in any agent environment that reads skill folders — Claude Code, Letaido, Codex, ChatGPT Agents. You can also run the audit script directly and ignore the agent part.
+
 ---
 
 ## ai-extractability-audit
 
-AI search engines don't read a page top to bottom. They split it into chunks, retrieve the passages most relevant to a query, and cite only the fragments that support an answer. A page can be well written, accurate, and thoroughly researched, and still never get cited — because its best facts are buried late, hedged into mush, or written so they collapse when lifted out of context.
-
-This skill finds those failures and proposes the specific fix for each one.
+Finds the passages AI can't use, and proposes the specific fix for each one.
 
 ### Run the script directly
 
