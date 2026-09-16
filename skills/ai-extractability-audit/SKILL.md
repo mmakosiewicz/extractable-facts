@@ -1,6 +1,6 @@
 ---
 name: ai-extractability-audit
-description: "Audit any page or draft for whether AI search engines can extract, understand, and cite its facts, and return a fix list with a concrete rewrite for every finding — answer position, entity density, hedged claims, passages that stop making sense when quoted out of context, weak headings, table/FAQ/definition opportunities, and facts that exist only in structured data. Works on a live URL or an unpublished draft (.md/.docx/.txt), for any website, blog, or brand. Use when someone asks to 'optimize this for AI search / ChatGPT / LLMs', 'make this page easier for AI to cite', 'will AI quote this', 'is my content chunk-friendly', 'find vague or buried claims', 'check what an AI bot can see on this page', 'why isn't AI citing us', 'GEO/AEO audit this page', or wants a pre-publish extractability check on a draft. Also covers rewriting flagged passages into self-contained statements — but only from sources the user supplies; it never decides whether a claim is true. NOT for measuring where a brand already appears in AI answers (that's an AI visibility or mention-gap audit), NOT for crawlability and indexing setup, and NOT for house voice or tone."
+description: "Audit any page or draft for whether AI search engines can extract, understand, and cite its facts, and return a fix list with a concrete rewrite for every finding — answer position, entity density, hedged claims, passages that stop making sense when quoted out of context, weak headings, table/FAQ/definition opportunities, and facts that exist only in structured data. Works on a live URL or an unpublished draft (.md/.docx/.txt), for any website, blog, or brand. Use when someone asks to 'optimize this for AI search / ChatGPT / LLMs', 'make this page easier for AI to cite', 'will AI quote this', 'is my content chunk-friendly', 'find vague or buried claims', 'what can an AI bot actually see on this page', 'why isn't AI citing us', 'GEO/AEO audit this page', or wants a pre-publish extractability check on a draft. Also handles the follow-up pass: give it verified facts and it rewrites the flagged passages around them into clearer, self-contained statements — but only from sources the user supplies; it never decides whether a claim is true. NOT for measuring where a brand already appears in AI answers (that's an AI visibility or mention-gap audit), NOT for crawlability and indexing setup, and NOT for house voice or tone."
 ---
 
 # AI Extractability Audit
@@ -13,6 +13,8 @@ This skill finds those failures **and proposes the specific fix for each one**. 
 - **Draft mode** — an unpublished `.md`, `.txt`, or `.docx`. Everything except the crawl layer, so problems get fixed before publish.
 
 **The hard boundary:** this skill flags weak, vague, and non-standalone passages, and rewrites them when given evidence. It cannot decide whether a claim is *true*. Every rewrite must trace to a source the user supplies or the page already cites. An unsourced claim gets flagged for the human — never confidently restated. Turning a hedge into a definitive statement without evidence doesn't improve the page; it manufactures a false claim that AI systems may go on to repeat.
+
+That boundary is a handoff, not a dead end. The audit ends with a short list of the facts it needs; supply them and the second pass (step 4b) turns each one into a clearer, self-contained statement. **The facts have to come from a reliable source — the user's, not the model's recollection.**
 
 **It is also not a product-placement tool.** Extractability is about whether a machine can lift a fact out of the page. Nothing here asks the writer to mention any product, the site's own tools, or a sponsor. If the audit recommends adding a specific name or number, it's because the passage makes a claim that needs an identifiable subject — not because a brand should appear.
 
@@ -84,13 +86,19 @@ Entities means anything identifiable: people, organizations, products, places, d
 
 **Format opportunities.** Confirm each suggestion is genuine. Four figures in a paragraph *usually* wants a table; sometimes it's a narrative where the numbers belong in prose. Say which you'd actually change.
 
-### 3. Check what the bot can see (URL mode)
+### 3. Check what the bot can actually see (URL mode)
 
-The `visible vs structured` section lists facts found in JSON-LD but not in visible text. Each one is a fact AI search doesn't have. Pricing, feature lists, ratings, availability, and author credentials are the usual casualties.
+"What does an AI bot see on this page?" is a question this skill answers directly, and it's worth answering explicitly in the report even when nothing is wrong — most people have never seen the gap between what renders in a browser and what a crawler receives.
 
-Two more signals: no `<article>` or `<main>` wrapper often means readability extractors mangle the page — worth verifying by comparing what a readability extraction returns against the full page, since some templates lose every heading. Zero tables on a page full of comparisons is a missed extraction aid.
+**Facts that exist only in structured data.** The `visible vs structured` section lists values found in JSON-LD but absent from visible text. Each one is a fact AI search doesn't have: tested AI systems ignored JSON-LD, hidden Microdata, and hidden RDFa, and relied on visible HTML. Pricing, feature lists, ratings, availability, and author credentials are the usual casualties. The fix is never "remove the schema" — it's to surface the same fact in visible copy and keep the structured data too.
 
-For deeper crawl-layer questions — robots.txt, noindex, bot blocking, per-crawler access — that's a different job; this skill assumes the page is reachable.
+**Content that survives extraction.** Compare what a readability pass returns against the full page. A missing `<article>` or `<main>` wrapper often means an extractor keeps the prose but drops every heading, which erases the page's structure before anything gets chunked. Report the word count and heading count each path recovers — "4,103 of 4,578 words but 0 of 31 headings" tells the user more than any adjective.
+
+**Content that needs JavaScript.** The script fetches raw HTML with no JS execution, the way most crawlers do. If the returned HTML is drastically shorter than what a browser shows, or the main content is missing entirely, say so plainly: that content may not exist for a crawler at all. Verify by comparing the fetched text against the rendered page.
+
+**Addressability.** Headings without `id` attributes can't be deep-linked, so an assistant citing one section has to point at the whole page.
+
+What this skill does **not** cover is access: robots.txt rules, noindex tags, bot-protection software, per-crawler allow/deny. Those decide whether a crawler arrives at all, and they're a separate audit. If the user is asking "is my page blocked?" rather than "can a bot use what's on my page?", say so and point them at a crawl-access check instead of guessing.
 
 ### 4. Write the report
 
@@ -136,9 +144,37 @@ For a longer page, a rewrite table beats prose — it lets the user scan current
 
 **Before sending, re-read your own report and check every finding has a rewrite or a specific source question.** If any item reads as "here's a problem, good luck", fix it or drop it.
 
-### 5. How to write the rewrites
+#### Writing the "Needs a source" section
 
-Rewrites are part of the report, not a follow-up service. Propose them by default; applying them to a file is the separate step that needs the user's go-ahead.
+This section is a **request for facts, not a list of complaints**, and it's the half of the audit that turns into the best rewrites once answered. Make it trivially easy to answer: one numbered row per claim, the exact question, and the shape of the answer you need.
+
+| # | Claim as written | What I need | Shape |
+|---|---|---|---|
+| 1 | "most teams see an improvement" | How many teams, measured how, over what period? | a % and a sample size |
+| 2 | "the study found a large effect" | Which study, which year, what effect size? | citation + number |
+| 3 | "we tested this extensively" | How many pages, over how long? | two numbers |
+
+Close the section by telling the user what happens next: *"Answer any of these and I'll rewrite the passage around the fact."* A source list nobody knows how to act on is a wasted section.
+
+### 5. The second pass: rewriting from supplied facts
+
+When the user comes back with facts — a number, a study, a date, an internal result — that's the highest-value part of this workflow. The passage already has a diagnosed weakness and now it has evidence, so the rewrite writes itself.
+
+For each fact supplied:
+
+1. **Rebuild the sentence around the fact, not beside it.** "Most teams see an improvement (we measured 23%)" still leads with the vague claim. "23% of the 140 teams we measured improved" leads with the fact. The specific thing goes in the subject position, where a retriever matching on entities will find it.
+2. **Attach the qualifiers that make it verifiable** — sample size, time period, method, source. A number with no denominator is only marginally more extractable than no number.
+3. **Drop the hedge that was standing in for the missing evidence.** That hedge existed because the writer didn't have the fact; now they do.
+4. **Link the source on the specific claim**, not the whole sentence.
+5. **Re-read the chunk standalone.** Adding a fact sometimes introduces a new orphan reference ("the study" — which study?). Name it in-chunk.
+
+**Use exactly what the user gave you.** Don't round 23.4% to "nearly a quarter", don't upgrade "in our sample" to "across the industry", don't infer a cause from a correlation they reported. If the supplied fact is weaker or narrower than the original claim, the rewrite must get *narrower* too — and say so, because the author may not expect their claim to shrink.
+
+If a supplied fact doesn't actually support the claim, say that instead of forcing it. "This number measures something adjacent — it shows X, the sentence claims Y" is a more useful answer than a rewrite that quietly overstates the evidence.
+
+### 6. How to write the rewrites
+
+Applies to both passes. Rewrites are part of the report, not a follow-up service — propose them by default; applying them to a file is the separate step that needs the user's go-ahead.
 
 A good rewrite is **minimal, sourced, and in the author's voice.** Change the words that cause the retrieval failure and nothing else — a six-word fix the author accepts beats a rewritten paragraph they argue with. Show it as current versus proposed so the delta is visible.
 
@@ -183,6 +219,6 @@ For a draft, offer to apply the rewrites directly to the file as a second pass, 
 
 - **Where a brand already appears in AI answers** (mentions, share of voice, citation gaps) → an AI visibility or mention-gap audit
 - **Which cited pages have gone stale** → a citation freshness audit
-- **Crawlability, indexing, bot access** → a crawl/access audit
+- **Whether crawlers can reach the page at all** (robots.txt, noindex, bot blocking, per-crawler rules) → a crawl/access audit. This skill covers what a bot can *use* once it has the page, not whether it gets there.
 - **House voice, tone, and publishing format** → the brand's own style guide or style skill
 - **Whether a claim is true** → not this skill, not any skill. A human with a source.
