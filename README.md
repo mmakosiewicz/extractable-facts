@@ -40,7 +40,7 @@ python3 skills/query-match-audit/scripts/querymatch.py \
 
 Per query it returns a verdict — **dedicated page** / **dedicated section** / **buried in body** / **not covered** — with per-field coverage across title, H1, slug, headings and body, the terms missing from the title, and how deep into the page the query's terms first co-occur.
 
-For substance it checks nine hard-to-reproduce signals (original data, methodology, firsthand experience, examples, screenshots, benchmarks, customer insight, expert input, workflows), plus figures per 1,000 words, external sourcing, thin sections, generic openers, and unsupported appeals to authority — "studies show" with no link.
+For substance it checks nine hard-to-reproduce signals (original data, methodology, firsthand experience, examples, screenshots, benchmarks, customer insight, expert input, workflows), plus figures per 1,000 words, external sourcing, content images and their alt text, thin sections, generic openers, and unsupported appeals to authority — "studies show" with no link.
 
 ```
 QUERY MATCH
@@ -56,6 +56,8 @@ SUBSTANCE  (6/9 hard-to-reproduce signals present)
   ABSENT  : screenshots, customer, workflow
   28 figures (12.2/1000w) · 9 external links · 2 distinct sources
 ```
+
+Note what the script does **not** do: it can't tell whether an example is any good, only whether one exists. Signal counts are a starting point for the reading pass, not a score.
 
 The skill then handles the judgement the script can't: whether a buried query deserves its own page (with the proposed title, H1, slug, and what moves across), and the **replaceability test** — if a competitor could write this page from the same three sources in an afternoon, that's the finding, and it outranks every heading tweak in the report.
 
