@@ -77,6 +77,17 @@ FORMAT OPPORTUNITIES
   chunk   9  → definition definition appears in sentence 5, not first
 ```
 
+### What an AI bot actually sees (URL mode)
+
+The audit answers "what can a crawler see on this page?" directly, and reports it even when nothing is wrong:
+
+- **Facts that exist only in structured data.** Tested AI systems ignored JSON-LD, hidden Microdata, and hidden RDFa and relied on visible HTML — so a price that lives only in schema is a price AI search doesn't have. The fix is to surface it in visible copy and keep the schema.
+- **Content that survives extraction.** A missing `<article>`/`<main>` wrapper often means a readability pass keeps the prose but drops every heading, erasing the page's structure before chunking. The report gives counts, not adjectives: "4,103 of 4,578 words but 0 of 31 headings".
+- **Content that needs JavaScript.** The script fetches raw HTML with no JS execution, the way most crawlers do. If the main content isn't in there, it may not exist for a crawler at all.
+- **Addressability.** Headings without `id` attributes can't be deep-linked, so an assistant citing one section has to point at the whole page.
+
+Whether crawlers can *reach* the page — robots.txt, noindex, bot blocking, per-crawler rules — is a separate audit. This one covers what a bot can use once it has the page.
+
 ### The script is only half of it
 
 `extractability.py` counts and pattern-matches. **It over-flags on purpose** — it's cheap to run and catches candidates. The `SKILL.md` then directs the judgement pass an agent (or you) performs over the flagged chunks:
@@ -88,9 +99,13 @@ FORMAT OPPORTUNITIES
 
 Treating the script's raw output as the finding is the main way this audit goes wrong.
 
-### The hard boundary
+### The hard boundary — and the handoff
 
-**The skill never decides whether a claim is true.** Every rewrite must trace to a source the user supplies or the page already cites. Unsourced claims go in a "Needs a source" section with a specific question attached, rather than being confidently restated. Turning a hedge into a definitive statement without evidence doesn't improve the page — it manufactures a false claim that AI systems may then repeat.
+**The skill never decides whether a claim is true.** Every rewrite must trace to a source the user supplies or the page already cites. Turning a hedge into a definitive statement without evidence doesn't improve the page — it manufactures a false claim that AI systems may then repeat.
+
+That's a handoff, not a dead end. The audit closes with a short **"Needs a source"** table: the claim as written, the exact question, and the shape of the answer needed ("a % and a sample size"). Supply any of them and the second pass rebuilds the sentence *around* the fact rather than bolting it on — "23% of the 140 teams we measured improved", not "most teams see an improvement (we measured 23%)" — then drops the hedge that was standing in for the missing evidence and re-checks that the chunk still reads standalone.
+
+It uses exactly what you give it: no rounding 23.4% to "nearly a quarter", no upgrading "in our sample" to "across the industry". If your fact turns out to be narrower than the original claim, the rewrite gets narrower too, and says so.
 
 ### Research behind the thresholds
 
