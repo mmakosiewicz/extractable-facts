@@ -269,12 +269,37 @@ def match_report(query: str, meta: dict, body: str, headings: list[str]) -> dict
 
 
 # ── substance ──────────────────────────────────────────────────────────────
-def substance(body: str) -> dict:
+def content_images(html: str) -> list[dict]:
+    """Article images from raw HTML, excluding theme/template furniture.
+
+    Text extraction drops image markup, so counting screenshots from the
+    extracted body reports zero on pages full of them.
+    """
+    out = []
+    for tag in re.findall(r"<img\b[^>]*>", _STRIP.sub(" ", html), re.I):
+        src = re.search(r'(?:data-src|src)\s*=\s*["\']([^"\']+)', tag, re.I)
+        if not src:
+            continue
+        u = src.group(1)
+        if u.startswith("data:"):
+            continue
+        is_content = ("/uploads/" in u) or ("/wp-content/" in u and "/themes/" not in u)
+        if not is_content:
+            continue
+        alt = re.search(r'\balt\s*=\s*["\']([^"\']*)["\']', tag, re.I)
+        out.append({"file": u.rsplit("/", 1)[-1][:60],
+                    "alt": alt.group(1) if alt else None})
+    return out
+
+
+def substance(body: str, images: list[dict] | None = None) -> dict:
     low = body.lower()
     hits = {}
     for name, pat in SUBSTANCE_PATTERNS.items():
         found = re.findall(pat, body, re.I)
         hits[name] = len(found)
+    if images is not None:
+        hits["screenshots"] = len(images)
     words = max(len(body.split()), 1)
     numbers = len(re.findall(r"\b\d[\d,.]*\s?%|\b\$\s?\d[\d,.]*|\b\d[\d,.]{2,}\b", body))
     links = re.findall(r"\[[^\]]+\]\((https?://[^)]+)\)", body)
@@ -291,6 +316,8 @@ def substance(body: str) -> dict:
     present = [k for k, v in hits.items() if v]
     return {
         "signals": hits,
+        "images": images or [],
+        "images_missing_alt": sum(1 for i in (images or []) if not i.get("alt")),
         "signal_types_present": len(present),
         "signal_types_total": len(SUBSTANCE_PATTERNS),
         "present": present,
@@ -370,7 +397,8 @@ def html_sections(html: str) -> list[dict]:
 # ── assembly ───────────────────────────────────────────────────────────────
 def audit(md: str, meta: dict, queries: list[str], *, source: str, mode: str,
           headings: list[str] | None = None,
-          sections: list[dict] | None = None) -> dict:
+          sections: list[dict] | None = None,
+          images: list[dict] | None = None) -> dict:
     hs = headings if headings is not None else headings_of(md)
     body = re.sub(r"^#{1,6}\s+.*$", "", md, flags=re.M)
     matches = [match_report(q, meta, body, hs) for q in queries]
@@ -379,7 +407,7 @@ def audit(md: str, meta: dict, queries: list[str], *, source: str, mode: str,
     return {
         "mode": mode, "source": source, "meta": meta,
         "queries": matches,
-        "substance": substance(body),
+        "substance": substance(body, images),
         "sections": secs,
         "thin_sections": [s for s in secs if 0 < s["words"] < 120 and not s.get("chrome")],
         "headings": hs,
@@ -416,6 +444,10 @@ def render(r: dict) -> str:
     L.append(f"  ABSENT  : {', '.join(s['absent']) or '(none)'}")
     L.append(f"  {s['numbers']} figures ({s['numbers_per_1000w']}/1000w) · "
              f"{s['external_links']} external links · {len(s['source_domains'])} distinct sources")
+    if s.get("images"):
+        miss = s["images_missing_alt"]
+        L.append(f"  {len(s['images'])} content images"
+                 + (f" ({miss} missing alt text)" if miss else " (all have alt text)"))
     if s["source_domains"]:
         L.append(f"  sources : {', '.join(s['source_domains'][:8])}")
     if s["generic_openers"]:
@@ -468,7 +500,8 @@ def main() -> int:
             meta = page_meta(got["html"], got["final_url"])
             hs = [h["text"] for h in html_headings(got["html"])]
             rep = audit(md, meta, queries, source=got["final_url"], mode="url",
-                        headings=hs, sections=html_sections(got["html"]))
+                        headings=hs, sections=html_sections(got["html"]),
+                        images=content_images(got["html"]))
         else:
             p = Path(a.draft).expanduser()
             md = load_draft(p)
